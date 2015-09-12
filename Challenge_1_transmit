@@ -1,0 +1,46 @@
+#include <math.h>
+#include <SoftwareSerial.h>
+SoftwareSerial XBee(2, 3); // RX, TX
+
+void setup() {
+  // put your setup code here, to run once:
+  Serial.begin(9600);
+  XBee.begin(9600);
+}
+
+void loop() {
+
+float resistor = 10000;
+float adc = analogRead(A5);
+float thermistor;
+float Temp;
+float adc1;
+char a = '1';
+
+Serial.print("ADC Value = ");
+Serial.println(adc);
+
+adc1 = (1023 / adc) -1;
+thermistor = resistor/adc1;
+
+//temp = log(10000*adc);
+//temp = 1 / (0.001129148 + (0.000234125 + (0.0000000876741 * temp * temp ))* temp);
+//temp = temp -273.15;
+
+Temp = log(((10230000/adc) - 10000)); // Minus by 10K as that's the resistor in series with the thermistor
+  Temp = 1 / (0.001129148 + (0.000234125 * Temp) + (0.0000000876741 * Temp * Temp * Temp));
+  Temp = Temp - 273.15; // Convert Kelvin to Celcius
+  
+Serial.print("Thermistor resistance = ");
+Serial.println(thermistor);
+Serial.print("Temperature in Celcius = ");
+Serial.println(Temp);
+
+XBee.print("I am Thermistor #");
+XBee.print(a);
+XBee.print(" with temperature = ");
+XBee.println(Temp);
+
+delay(1000);
+  
+}
