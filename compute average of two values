@@ -1,0 +1,38 @@
+#include <SoftwareSerial.h>
+#include<String.h>
+SoftwareSerial xbee(2, 3); // RX, TX
+char buf1[20];
+char buf2[20];
+int i=0;
+float x,y;
+char temp;
+void setup()
+{
+    Serial.begin(9600);
+
+    Serial.println( "Arduino started receiving bytes via XBee" );
+
+    // Set the data rate for the SoftwareSerial port.
+    xbee.begin(9600);
+}
+
+void loop()  {
+if (xbee.available()) {
+     //temp= xbee.read();
+     //for(i;i<5;i++)
+     xbee.readBytesUntil('a',buf1,20);
+     xbee.readBytesUntil('a',buf2,20);
+     x= atof(buf1);
+     y=atof(buf2);
+     Serial.println(x);
+     Serial.println(y);
+     float average = (x + y)/2.0;
+     Serial.print("Average=");
+     Serial.println(average);
+      
+      
+      
+   
+}
+    
+}
