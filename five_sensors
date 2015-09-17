@@ -6,7 +6,7 @@ bool received[1000];
 int i=0;
 int y;
 float x=0, thermistor, resistor = 10000;
-float sum=0, Temp, adc1, offset=1;
+float sum=0, Temp, adc1, offset=0.8;
 char num;
 
 
@@ -63,6 +63,7 @@ if (xbee.available()) {
      Serial.print(num);
      Serial.print(", My temperature is:");
       Serial.println(x);
+      x+=offset;
      sum = x + sum; 
      i++;
      received[num]=1;
