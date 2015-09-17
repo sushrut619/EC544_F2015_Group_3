@@ -6,7 +6,7 @@ bool received[1000];
 int i=0;
 int y;
 float x=0, thermistor, resistor = 10000;
-float sum=0, Temp, adc1;
+float sum=0, Temp, adc1, offset=1;
 char num;
 
 
@@ -34,7 +34,7 @@ if (xbee.available()) {
 
      Temp = log(((10230000/adc) - 10000)); // Minus by 10K as that's the resistor in series with the thermistor
      Temp = 1 / (0.001129148 + (0.000234125 * Temp) + (0.0000000876741 * Temp * Temp * Temp));
-     Temp = Temp - 273.15; // Convert Kelvin to Celcius 
+     Temp = Temp - 273.15+offset; // Convert Kelvin to Celcius 
 //
       num=buf[0];
       buf[0]='0';
