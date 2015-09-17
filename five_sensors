@@ -62,8 +62,10 @@ if (xbee.available()) {
        Serial.print("I am sensor #");
      Serial.print(num);
      Serial.print(", My temperature is:");
-      Serial.println(x);
+     
       x+=offset;
+      Serial.println(x);
+     
      sum = x + sum; 
      i++;
      received[num]=1;
