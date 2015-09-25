@@ -1,0 +1,69 @@
+<script type="text/javascript">
+            var can, ctx,
+                maxVal, minVal,
+                xScalar, yScalar,
+                numSamples;
+            // data sets -- set literally or obtain from an ajax call
+            var ASA = <%= simbean.getAsatime() %>;
+            var SC = <%= simbean.getSctime() %>;
+            var bruteforce = <%= simbean.getBftime() %>;
+            
+            function init() {
+                // set these values for your data
+                numSamples = 7;
+                maxVal = 1000;
+                minVal = 0;
+                var stepSize = 100;
+                var colHead = 50;
+                var rowHead = 50;
+                var margin = 5;
+                var header = ["4", "5", "6", "7", "8", "9", "10"];
+                
+                can = document.getElementById("can");
+                ctx = can.getContext("2d");
+                ctx.fillStyle = "black";
+                ctx.font = "14pt Helvetica";
+                // set vertical scalar to available height / data points
+                yScalar = (can.height - colHead - margin) / (maxVal - minVal);
+                // set horizontal scalar to available width / number of samples
+                xScalar = (can.width - rowHead) / numSamples;
+
+                ctx.strokeStyle="rgba(128, 128, 255, 0.5)"; // light blue lines
+                ctx.beginPath();
+                // print  column header and draw vertical grid lines
+                for (i = 1; i <= numSamples; i++) {
+                    var x = i * xScalar;
+                    ctx.fillText(header[i], x+rowHead, colHead - margin);
+                    ctx.moveTo(x+rowHead, colHead);
+                    ctx.lineTo(x+rowHead, can.height - margin);
+                }
+                // print row header and draw horizontal grid lines
+                var count = 0;
+                for (scale = maxVal; scale >= minVal; scale -= stepSize) {
+                    var y = colHead + (yScalar * count * stepSize);
+                    ctx.fillText(scale, margin, y + margin);
+                    ctx.moveTo(rowHead, y);
+                    ctx.lineTo(can.width, y);
+                    count++;
+                }
+                ctx.stroke();
+
+                // set a color and make one call to plotData()
+                // for each data set
+                ctx.strokeStyle = "green";
+                plotData(SC);
+                ctx.strokeStyle = "red";
+                plotData(ASA);
+                ctx.strokeStyle = "purple";
+                plotData(bruteforce);
+            }
+
+            function plotData(dataSet) {
+                ctx.beginPath();
+                ctx.moveTo(50,395-dataSet[0]*yScalar);
+                for (i = 1; i < numSamples; i++) {
+                   ctx.lineTo(i * xScalar+50,395-dataSet[i]*yScalar);
+                }
+                ctx.stroke();
+            }        
+        </script>
