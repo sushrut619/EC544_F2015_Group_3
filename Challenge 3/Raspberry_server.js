@@ -68,7 +68,7 @@ io.sockets.on('connection', function (socket) {
   }
 
 
-  socket.on('led', function (data) {
+  socket.on('ledSet', function (data) {
     console.log('The LED is blinking every ' + data + 'ms');
      if(board.isReady){    led.strobe(data); }
      socket.emit('news', { LED_blink_rate: data });
