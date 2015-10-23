@@ -1,27 +1,3 @@
-/***********************************************************************************************************
-/* Lynxmotion BotBoarduino LIDAR Lite Sweep Scan
-/* Version: 1.0.0
-/* By: scharette
-/* Date: 2015-03-31
-/* 
-/* Short example based on the Servo library example "Sweep" example and the Pulsed Light 3D examples.
-/* The servo motor* is attached to pin 5 and rotates from 0-180 degrees continuously by 1 degree increments.
-/* The LIDAR lite is attached to VCC (+5 V DC), GND, SDA and SCL.
-/* 
-/* This examples uses the Wire library.
-/*
-/* Hardware used:
-/* BotBoarduino: http://www.robotshop.com/en/lynxmotion-botboarduino-robot-controller.html?product-code=RB-Lyn-363
-/* LIDAR-Lite Laser Rangefinder: http://www.robotshop.com/en/lidar-lite-laser-rangefinder-pulsedlight.html?product-code=RB-Pli-01
-/* HS-645MG servo motor: http://www.robotshop.com/en/hitec-hs645mg-servo-motor.html?product-code=RB-Hit-29
-/* (alternative) HS-422 servo motor: http://www.robotshop.com/en/hitec-hs422-servo-motor.html?product-code=RB-Hit-27
-/* Bracket to hold the LIDAR: http://www.robotshop.com/en/aluminum-l-connector-bracket-asb-06.html?product-code=RB-Lyn-83
-/* or this one: http://www.robotshop.com/en/lynxmotion-multi-purpose-sensor-housing.html?product-code=RB-Lyn-75
-/* Bracket to hold the servo motor: http://www.robotshop.com/en/lynxmotion-aluminum-multi-purpose-servo.html?product-code=RB-Lyn-81
-/*
-/* *: Please note that while we used a HS-645MG in our example, the HS-422 and almost any other standard RC servo motor could perform this task.
-/*
-/**********************************************************************************************************/
 
 #include <Wire.h>
 
@@ -29,7 +5,7 @@
 #define    RegisterMeasure     0x00          // Register to write to initiate ranging.
 #define    MeasureValue        0x04          // Value to initiate ranging.
 #define    RegisterHighLowB    0x8f          // Register to get both High and Low bytes in 1 call.
-
+#define    IRpin 0   
 #include <Servo.h>
 
 Servo myservo;
@@ -37,9 +13,12 @@ Servo wheels; // servo for turning the wheels
 Servo esc; // not actually a servo, but controlled like one!
 int pos = 0;         // Position of the servo (degress, [0, 180])
 int distance = 0;    // Distance measured
-int startupDelay = 1000; // time to pause at each calibration step
+int startupDelay = 2000; // time to pause at each calibration step
+                                 // analog pin for reading the IR sensor
+
 void setup()
-{
+{  //pinMode(3, OUTPUT);           // set pin to input
+//pinMode(3, OUTPUT);
   // Serial out
  
   Serial.begin(9600);
@@ -100,35 +79,50 @@ void calibrateESC(){
     delay(startupDelay);
     esc.write(90); // reset the ESC to neutral (non-moving) value
 }
-
-void turn(int distance)
+int measurefront()
 {
-  if(distance<30)
-  wheels.write(90 + 30);
-  else if(distance>60)
-  wheels.write(90 - 30);
+  float volts = analogRead(IRpin)*0.0048828125;   // value from sensor * (5/1024) - if running 3.3.volts then change 5 to 3.3
+  return 65*pow(volts, -1.10); 
+}
+void turn(int distance,int front)
+{ if (front>50)
+  {
+    if(distance<30)
+    wheels.write(90 + 90);
+    else if(distance>35)
+    wheels.write(90 - 30);
+    else
+    wheels.write(90);
+  }
   else
-   wheels.write(90);
+   wheels.write(90 + 90);
   
 }
+
+//void switchlidar()
+//{
+//  
+//digitalWrite(pin, HIGH);       // turn on pullup resistors
+//}
 void loop()
-{  // esc.write(120);
+{ 
+  
   for(pos = 0; pos <= 180; pos += 1)
   {
     myservo.write(pos);
     distance = lidarGetRange();
     serialPrintRange(pos, distance); 
-    esc.write(85);
-    turn(distance); 
+    esc.write(70);
+    turn(distance,measurefront()); 
     delay(20);
   }
   for(pos = 180; pos>=0; pos-=1)
   {
     myservo.write(pos);
+    esc.write(70);
     distance = lidarGetRange();
     serialPrintRange(pos, distance);
-    esc.write(85);
-    turn(distance); 
+    turn(distance,measurefront()); 
     delay(20);
   }
 }
