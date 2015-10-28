@@ -256,5 +256,5 @@ int readDistance(){
   int distance = (distanceArray[0] << 8) + distanceArray[1];  // Shift high byte [0] 8 to the left and add low byte [1] to create 16-bit int
   
   return distance;   // Print Sensor Name & Distance
-   
+    
 }
