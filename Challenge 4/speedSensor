@@ -1,0 +1,44 @@
+const int ledControl = 4;  // pin 4
+const int encoderPin = 2;  
+int encoderReading;
+volatile int pulseCounter = 0;
+unsigned long crntTime, prevTime = 0;
+int encoderConstant = 4;
+float wheelSpeed;
+
+void setup() {
+  // put your setup code here, to run once:
+  Serial.begin(9600);
+  pinMode(ledControl,OUTPUT);
+  pinMode(encoderReading,INPUT);
+  attachInterrupt(digitalPinToInterrupt(encoderPin),countPulse,CHANGE);
+}
+void loop() {
+  // put your main code here, to run repeatedly:
+  digitalWrite(ledControl,HIGH);
+  delay(2);
+  encoderReading = digitalRead(encoderPin);
+  Serial.print("Sensor Reading: ");
+  Serial.println(encoderReading);
+  Serial.print("counter: ");
+  Serial.println(pulseCounter);
+  crntTime = millis();
+  if(crntTime-prevTime >= 2000){
+    wheelSpeed = calculateSpeed();
+  }
+  Serial.print("speed in rpm: ");
+  Serial.println(wheelSpeed);
+  delay(100);
+}
+
+void countPulse(){
+  pulseCounter += 1;
+}
+
+float calculateSpeed(){
+  float spd = pulseCounter/encoderConstant; 
+  spd = spd/(crntTime-prevTime);  //divide by time 
+  spd = spd*60;  //convert to rpm
+  pulseCounter = 0;
+  return spd;  
+}
