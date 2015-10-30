@@ -1,0 +1,300 @@
+#include <Wire.h>
+#include <PID_v1.h>
+#include <Servo.h>
+#include <I2C.h>
+
+#define    LIDARLite_ADDRESS   0x62          // Default I2C Address of LIDAR-Lite.
+#define    RegisterMeasure     0x00          // Register to write to initiate ranging.
+#define    MeasureValue        0x04          // Value to initiate ranging.
+#define    RegisterHighLowB    0x8f          // Register to get both High and Low bytes in 1 call.
+
+double input,output,setpoint;
+PID pid0(&input,&output,&setpoint,3,0,0.9,DIRECT);
+Servo myservo;
+Servo wheels; // servo for turning the wheels
+Servo esc; // not actually a servo, but controlled like one!
+int pos = 0;         // Position of the servo (degress, [0, 180])
+int distanceright, distanceleft, distance, LidarLeft, LidarRight;    // Distance measured
+int startupDelay = 1000; // time to pause at each calibration step
+const int pwPin = 7; //Sonar pin init
+
+const int ledControl = 13;  // pin 4
+const int encoderPin = 2;  
+int encoderReading;
+volatile int pulseCounter = 0;
+unsigned long crntTime, prevTime = 0;
+int encoderConstant = 16;
+float wheelSpeed;
+
+
+int sensorPins[] = {4,5}; // Array of pins connected to the sensor Power Enable lines
+int sensorPinsArraySize = 2; // The length of the array
+
+unsigned long pulse_width;
+
+void setup()
+{
+  // Serial out
+ 
+  Serial.begin(9600);
+  Serial.println("< START >");
+
+  pinMode(ledControl,OUTPUT);
+  pinMode(encoderReading,INPUT);
+  attachInterrupt(digitalPinToInterrupt(encoderPin),countPulse,CHANGE);
+
+  // Servo control
+  myservo.attach(5); 
+  wheels.attach(8); // initialize wheel servo to Digital IO Pin #8
+  esc.attach(9); // initialize ESC to Digital IO Pin #9
+  calibrateESC();
+  
+  // LIDAR control
+  I2c.begin(); // Opens & joins the irc bus as master
+  delay(100); // Waits to make sure everything is powered up before sending or receiving data  
+  I2c.timeOut(50); // Sets a timeout to ensure no locking up of sketch if I2C communication fails
+  for (int i = 0; i < sensorPinsArraySize; i++){
+    pinMode(sensorPins[i], OUTPUT); // Pin to first LIDAR-Lite Power Enable line
+    Serial.print(sensorPins[i]);
+  }
+  //PID Control
+  pid0.SetOutputLimits(-50, 50);
+  pid0.SetMode(AUTOMATIC);
+  setpoint=80;
+}
+
+// Get a measurement from the LIDAR Lite
+
+int lidarGetRangeLeft(void)
+{  
+pulse_width = pulseIn(3, HIGH); // Count how long the pulse is high in microseconds
+  if(pulse_width != 0){ // If we get a reading that isn't zero, let's print it
+        pulse_width = pulse_width/10; // 10usec = 1 cm of distance for LIDAR-Lite
+    Serial.println(pulse_width); // Print the distance
+    return(pulse_width);
+  }else{ // We read a zero which means we're locking up. 
+    digitalWrite(4,LOW); // Turn off the sensor
+    delay(1);// Wait 1ms
+    digitalWrite(4,HIGH); //Turn on te sensor
+    delay(1);//Wait 1ms for it to turn on.
+  }
+  delay(1); //Delay so we don't overload the serial port
+}
+
+int lidarGetRangeRight(void)
+{  
+  int val = -1;
+  
+  Wire.beginTransmission((int)LIDARLite_ADDRESS); // transmit to LIDAR-Lite
+  Wire.write((int)RegisterMeasure); // sets register pointer to  (0x00)  
+  Wire.write((int)MeasureValue); // sets register pointer to  (0x00)  
+  Wire.endTransmission(); // stop transmitting
+
+  delay(20); // Wait 20ms for transmit
+
+  Wire.beginTransmission((int)LIDARLite_ADDRESS); // transmit to LIDAR-Lite
+  Wire.write((int)RegisterHighLowB); // sets register pointer to (0x8f)
+  Wire.endTransmission(); // stop transmitting
+
+  delay(20); // Wait 20ms for transmit
+  
+  Wire.requestFrom((int)LIDARLite_ADDRESS, 2); // request 2 bytes from LIDAR-Lite
+
+  if(2 <= Wire.available()) // if two bytes were received
+  {
+    val = Wire.read(); // receive high byte (overwrites previous reading)
+    val = val << 8; // shift high byte to be high 8 bits
+    val |= Wire.read(); // receive low byte as lower 8 bits
+  }
+ // Serial.println(val);
+  return val;
+}
+
+//void serialPrintRange(int pos, int distance)
+//{
+//    Serial.print("Position (deg): ");
+//    Serial.print(pos);
+//    Serial.print("\t\tDistance (cm): ");
+//    Serial.println(distance);
+//}
+
+void calibrateESC(){
+    esc.write(180); // full backwards
+    delay(startupDelay);
+    esc.write(0); // full forwards
+    delay(startupDelay);
+    esc.write(90); // neutral
+    delay(startupDelay);
+    esc.write(90); // reset the ESC to neutral (non-moving) value
+}
+
+void turn(int distanceright,int distanceleft,int front)
+{ if(distanceleft<distanceright)//more closer to left 
+  {
+  if(front>120)
+  {
+  if(distanceleft<30)
+  wheels.write(90 + 40);
+  else if(distanceleft>30 )
+  wheels.write(90 - 15);
+  else
+   wheels.write(90);
+  }
+  else
+  wheels.write(90 + 90);
+  }
+  if(distanceleft>distanceright) //more closer to right
+  {
+  if(front>120)
+  {
+  if(distanceright<30)
+  wheels.write(90 - 15);
+  else if(distanceright>30 )
+  wheels.write(90 + 40);
+  else
+   wheels.write(90);
+  }
+  else
+  wheels.write(90 + 90);
+  }
+  
+}
+
+int sonar( int pin)
+{
+   pinMode(pin, INPUT);
+    //Used to read in the pulse that is being sent by the MaxSonar device.
+  //Pulse Width representation with a scale factor of 147 uS per Inch.
+  long pulse, inches, cm;
+
+  pulse = pulseIn(pin, HIGH);
+  //147uS per inch
+  inches = pulse/147;
+  //change inches to centimetres
+  cm = inches * 2.54;
+  if (pin == 7)
+  {
+      Serial.print("Sonar pin right: ");
+      Serial.println(cm);
+  }
+  else if (pin == 6)
+  {
+      Serial.print("Sonar pin left: ");
+      Serial.println(cm);
+  }
+  return cm;
+    
+}
+
+int IR(int pin){
+  float volts = analogRead(pin)*0.0048828125;   // value from sensor * (5/1024) - if running 3.3.volts then change 5 to 3.3
+  float distance = 65*pow(volts, -1.10);          // worked out from graph 65 = theretical distance / (1/Volts)S - luckylarry.co.uk
+
+  if (pin == 0)
+  {
+    Serial.print("\t\tIR Front: ");
+    Serial.println(distance);
+    //return distance;
+  }
+  else if (pin == 1)
+  {
+    Serial.print("\t\tIR Back: ");
+    Serial.println(distance);
+  }
+  return distance;
+}
+void loop()
+{ 
+
+  digitalWrite(ledControl,HIGH);
+  delay(2);
+  encoderReading = digitalRead(encoderPin);
+  Serial.print("counter: ");
+  Serial.println(pulseCounter);
+  crntTime = millis();
+  if(crntTime-prevTime >= 3000){
+    wheelSpeed = calculateSpeed();
+  }
+  Serial.print("speed in rpm: ");
+  Serial.println(wheelSpeed);
+  delay(100);
+  
+  enableDisableSensor(5); //Turn on sensor attached to pin 3 and disable all others
+  input=readDistance();
+  if (input > 150) {
+    setpoint = input;
+  }
+  else {
+    setpoint = 80;
+  }
+    Serial.print(input);
+    Serial.print("       ");
+    pid0.Compute();
+    Serial.println(output);
+    wheels.write(90 + output);
+    esc.write(75);
+    delay(10);
+//
+    //distanceright = sonar(7);
+    //distanceleft = sonar(6);
+    //serialPrintRange(pos, distance); 
+
+    //turn(distanceright,distanceleft,getLidarRange()); 
+    
+//   esc.write(75);
+//    IR(0);
+//   //IR(1);
+
+//  enableDisableSensor(2); // Turn on sensor attached to pin 2 and disable all others
+//  Serial.print("Left: "); // Print "." to separate readings
+//  Serial.println(readDistance()); // Read Distance from Sensor
+//  enableDisableSensor(3); //Turn on sensor attached to pin 3 and disable all others
+//  Serial.print(readDistance()); // Read Distance from Sensor
+//  Serial.println("Right: "); // Print "." to separate readings
+  delay(10);
+
+}
+
+
+void enableDisableSensor(int sensorPin){
+  for (int i = 0; i < sensorPinsArraySize; i++){
+      digitalWrite(sensorPins[i], LOW); // Turn off all sensors
+  }
+  digitalWrite(sensorPin, HIGH); // Turn on the selected sensor
+  delay(1); // The sensor takes 1msec to wake
+}
+
+int readDistance(){
+  uint8_t nackack = 100; // Setup variable to hold ACK/NACK resopnses     
+  while (nackack != 0){ // While NACK keep going (i.e. continue polling until sucess message (ACK) is received )
+    nackack = I2c.write(LIDARLite_ADDRESS,RegisterMeasure, MeasureValue); // Write 0x04 to 0x00
+    delay(1); // Wait 1 ms to prevent overpolling
+  }
+
+  byte distanceArray[2]; // array to store distance bytes from read function
+  
+  // Read 2byte distance from register 0x8f
+  nackack = 100; // Setup variable to hold ACK/NACK resopnses     
+  while (nackack != 0){ // While NACK keep going (i.e. continue polling until sucess message (ACK) is received )
+    nackack = I2c.read(LIDARLite_ADDRESS,RegisterHighLowB, 2, distanceArray); // Read 2 Bytes from LIDAR-Lite Address and store in array
+    delay(1); // Wait 1 ms to prevent overpolling
+  }
+  int distance = (distanceArray[0] << 8) + distanceArray[1];  // Shift high byte [0] 8 to the left and add low byte [1] to create 16-bit int
+  
+  return distance;   // Print Sensor Name & Distance
+   
+}
+
+
+void countPulse(){
+  pulseCounter += 1;
+}
+
+float calculateSpeed(){
+  float spd = pulseCounter/encoderConstant; 
+  spd = spd/(crntTime-prevTime);  //divide by time 
+  spd = spd*60;  //convert to rpm
+  prevTime = millis();
+  pulseCounter = 0;
+  return spd;  
+}
