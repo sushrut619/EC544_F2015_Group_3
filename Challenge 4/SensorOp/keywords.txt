@@ -1,0 +1,2 @@
+SensorOp	KEYWORD1
+readSensor	KEYWORD2
