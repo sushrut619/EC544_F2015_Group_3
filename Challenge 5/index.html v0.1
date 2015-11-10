@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Arduino remote access</title>
+
+    <!-- Bootstrap -->
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css">
+
+    <!-- Optional theme -->
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap-theme.min.css">
+
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+      <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+  </head>
+  <body onload="draw()">
+    <div class="container">
+        <h1>Localization using XBee</h1>
+    <div class="row">
+      <div class="col-md-4">
+      <h4>RSSI Values</h4>
+      <textarea class="form-control" style="background:#ffffff; color:#000000;" rows="8" id="inData"></textarea>
+      </div>
+
+      <div class="col-md-4">
+      <h4>Plot Values</h4>
+      <textarea class="form-control" style="background:#ffffff; color:#000000;" rows="8" id="inData2"></textarea>
+      </div>
+      </div>
+
+      <div class="col-md-8">
+      <hr>
+      <!-- <canvas id="myCanvas" width="700" height="400" style="background: url('http://p1.pichost.me/i/24/1468885.jpg')"></canvas> -->
+      <canvas id="myCanvas" width="800" height="600" style="background-color: LightGreen"></canvas>
+      </div>
+      <div class="col-md-8">
+      <h4>Switch</h4>
+      <div class="btn-group">
+          <p><button type="button" id="ledOn" class="btn btn-success">A</button>
+            <button type="button" id="ledOff" class="btn btn-danger">B</button></p>
+      </div>
+    </div>
+    </div>
+
+    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
+    <!-- Include all compiled plugins (below), or include individual files as needed -->
+    <script src="https://netdna.bootstrapcdn.com/bootstrap/3.1.1/js/bootstrap.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+
+    <script type="text/javascript">
+    var socket = io.connect(document.location.href);
+    </script>
+
+    <script>
+
+      function draw(){
+        var c=document.getElementById("myCanvas");
+        var ctx=c.getContext("2d");
+        //clear canvas
+        ctx.clearRect(0, 0, 800, 600);
+        ctx.rect(0,0,800,600);
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = 'black';
+        ctx.stroke();
+      }
+
+      var socket = io.connect('');
+      socket.on('news', function (data) {
+        console.log(data);
+      });
+
+      socket.on('error', function (reason){
+              console.error('Unable to connect Socket.IO', reason);
+            });
+
+      socket.on('connect', function (){
+        console.info('Success! Established an authorized connection');
+      });
+
+      socket.on('sensor', function (data) {
+        console.log("Incoming sensor data:",data.raw);
+        $("#inData").append(data.raw+"\r");
+        $("#inData").animate({scrollTop:$("#inData")[0].scrollHeight - $("#inData").height()},200);
+
+      });
+
+      socket.on('sensor2', function (data) {
+        console.log("Incoming sensor data:",data);
+        $("#inData2").append(data.rssi+"\r");
+        $("#inData2").animate({scrollTop:$("#inData2")[0].scrollHeight - $("#inData2").height()},200);
+
+        //Plotting position using HTML5 canvas
+        //200 pixels == 30cm
+        var x; var y; var radius;
+        if(data.rssi >= 30 && data.rssi <= 40){radius = 100;} //distance from beacon 30cm
+        else if(data.rssi >= 41 && data.rssi <= 50 ){radius = 200;} // distance from beacon 60cm
+        else if(data.rssi >=51 && data.rssi <= 60){radius = 300;} // distance from beacon 90cm
+
+        if(data.id == 0){x = 200; y = 0;}
+        else if(data.id == 3){x = 0; y = 0;}
+        else if(data.id == 4){x = 0; y = 200 }
+        var c=document.getElementById("myCanvas");
+        var ctx=c.getContext("2d");
+        //draw circle
+        ctx.beginPath();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle="black";
+        ctx.arc(x, y, radius, 0, 2 * Math.PI);
+        ctx.stroke();
+        ctx.closePath();
+        //draw rectanlge
+        ctx.beginPath();
+        ctx.fillRect(x,y,20,20);
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = 'black';
+        ctx.stroke();
+        ctx.closePath();
+      });
+
+    </script>
+    </body>
+</html>
