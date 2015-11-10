@@ -1,0 +1,91 @@
+var SerialPort = require("serialport");
+//var app = require('express')();
+var xbee_api = require('xbee-api');
+var app = require('http').createServer(handler);
+var io = require('socket.io').listen(app)
+var fs = require('fs');
+
+var C = xbee_api.constants;
+var XBeeAPI = new xbee_api.XBeeAPI({
+  api_mode: 2
+});
+
+var portName = process.argv[2];
+
+var sampleDelay = 100;
+var txPower = 22;
+
+
+//Note that with the XBeeAPI parser, the serialport's "data" event will not fire when messages are received!
+portConfig = {
+	baudRate: 9600,
+  parser: XBeeAPI.rawParser()
+};
+
+var sp;
+sp = new SerialPort.SerialPort(portName, portConfig);
+
+app.listen(9999);
+
+// handle web server
+function handler (req, res) {
+  fs.readFile(__dirname + '/index.html',
+  function (err, data) {
+    if (err) {
+      res.writeHead(500);
+      return res.end('Error: Could not find loading index.html');
+    }
+    res.writeHead(200);
+    res.end(data);
+  });
+}
+
+function calculatedistance(rssi) {
+
+ if (rssi == 0) return -1.0; // if we cannot determine accuracy, return -1.
+ var ratio = rssi*1.0/txPower;
+ if (ratio < 1.0) return Math.pow(ratio,10);
+ else return  (0.89976) * Math.pow(ratio,7.7095) + 0.111;          // The function returns the product of p1 and p2
+}
+
+io.sockets.on('connection', function (socket) {
+  //console.log('Established connection with ' + socket);
+  //socket.emit('news', { hello: 'world' });
+  // var socketId = socket.id;
+  // var clientIp = socket.request.connection.remoteAddress;
+  // console.log('Established connection with ' + clientIp);
+
+
+//Create a packet to be sent to all other XBEE units on the PAN.
+// The value of 'data' is meaningless, for now.
+  var RSSIRequestPacket = {
+    type: C.FRAME_TYPE.ZIGBEE_TRANSMIT_REQUEST,
+    destination64: "000000000000ffff",
+    broadcastRadius: 0x01,
+    options: 0x00,
+    data: "test"
+  }
+
+  var requestRSSI = function(){
+    sp.write(XBeeAPI.buildFrame(RSSIRequestPacket));
+  }
+  console.log('open');
+    requestRSSI();
+    setInterval(requestRSSI, sampleDelay);
+
+// sp.on("open", function () {
+//   console.log('open');
+//   requestRSSI();
+//   setInterval(requestRSSI, sampleDelay);
+// });
+
+  XBeeAPI.on("frame_object", function(frame) {
+    if (frame.type == 144){
+      console.log("Beacon ID: " + frame.data[1] + ", RSSI: " + (frame.data[0]));
+      socket.emit('sensor', { raw: 'Beacon ID: ' + frame.data[1] + '    RSSI: ' + frame.data[0] + '   Distance: ' + calculatedistance(frame.data[0]) });
+      // socket.emit('sensor2', frame.data[0]);
+      socket.emit('sensor2', { id: frame.data[1], rssi: frame.data[0], distance: calculatedistance(frame.data[0]) });
+    }
+  });
+
+});
