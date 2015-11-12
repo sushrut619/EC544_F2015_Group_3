@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Arduino remote access</title>
+
+    <!-- Bootstrap -->
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css">
+
+    <!-- Optional theme -->
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap-theme.min.css">
+
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+      <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+  </head>
+  <body onload="draw()">
+    <div class="container">
+        <h1>Localization using XBee</h1>
+    <div class="row">
+      <div class="col-md-5">
+      <h4>RSSI Values</h4>
+      <textarea class="form-control" style="background:#ffffff; color:#000000;" rows="5" id="inData"></textarea>
+      </div>
+      <div class="col-md-3">
+      <h4>Localization Control</h4>
+      <div class="btn-group">
+          <p><button type="button" id="ledOn" class="btn btn-success">Refresh location</button>
+            <button type="button" id="ledOff" class="btn btn-danger">Halt localization</button></p>
+      </div>
+      </div>
+
+      <div class="col-md-4">
+      <h4>Plot Values</h4>
+      <textarea class="form-control" style="background:#ffffff; color:#000000;" rows="8" id="inData3"></textarea>
+      </div>
+      </div>
+
+      <div class="col-md-12">
+      <hr>
+      <canvas id="myCanvas" width="1160" height="780" style="background: url('http://s15.postimg.org/woxq4rsvf/map.jpg')"></canvas>
+      <!-- <canvas id="myCanvas" width="1160" height="780" style="background-color: LightGreen"></canvas> -->
+      </div>
+    </div>
+
+    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
+    <!-- Include all compiled plugins (below), or include individual files as needed -->
+    <script src="https://netdna.bootstrapcdn.com/bootstrap/3.1.1/js/bootstrap.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+
+    <script type="text/javascript">
+    var socket = io.connect(document.location.href);
+    </script>
+
+    <script>
+      var tmp=1;
+      function draw(){
+        var c=document.getElementById("myCanvas");
+        var ctx=c.getContext("2d");
+        var imageObj = new Image();
+        imageObj.src = 'http://s15.postimg.org/woxq4rsvf/map.jpg';
+        //clear canvas
+        //ctx.clearRect(0, 0, 1160, 780);
+        ctx.drawImage(imageObj, 0, 0);
+        ctx.rect(0,0,1160,780);
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = 'black';
+        ctx.stroke();
+      }
+      var id1=0;
+      var id2=0;
+      var id3=0;
+      var id4=0;
+      var socket = io.connect('');
+      socket.on('news', function (data) {
+        console.log(data);
+      });
+
+      socket.on('error', function (reason){
+              console.error('Unable to connect Socket.IO', reason);
+            });
+
+      socket.on('connect', function (){
+        console.info('Success! Established an authorized connection');
+      });
+
+      socket.on('sensor', function (data) {
+        console.log("Incoming sensor data:",data.raw);
+        $("#inData").append(data.raw+"\r");
+        $("#inData").animate({scrollTop:$("#inData")[0].scrollHeight - $("#inData").height()},200);
+
+      });
+
+      socket.on('sensor3', function (data) {
+        console.log("Incoming sensor data:",data.raw);
+        $("#inData3").append(data.region+"\r");
+        $("#inData3").animate({scrollTop:$("#inData3")[0].scrollHeight - $("#inData3").height()},200);
+        var x, y;
+        if(data.region == 1){x = 0; y = 522;}
+        if(data.region == 2){x = 0; y = 264;}
+        if(data.region == 3){x = 0; y = 0;}
+        if(data.region == 4){x = 384; y = 518;}
+        if(data.region == 5){x = 384; y = 264;}
+        if(data.region == 6){x = 384; y = 0;}
+        if(data.region == 7){x = 766; y = 522;}
+        if(data.region == 8){x = 766; y = 264;}
+        if(data.region == 9){x = 766; y = 0;}
+
+        //draw rectanlge
+        var c=document.getElementById("myCanvas");
+        var ctx=c.getContext("2d");
+        console.log("x= ",x);
+        ctx.beginPath();
+        ctx.fillStyle = 'blue';
+        ctx.globalAlpha = 0.2;
+        ctx.fillRect(x,y,384,264);
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = 'blue';
+        ctx.stroke();
+        ctx.closePath();
+        //ctx.clearRect(0, 0, 1160, 780);
+      });
+
+      socket.on('sensor2', function (data) {
+        if(tmp==1)
+        {
+        console.log("Incoming sensor data:",data);
+        // $("#inData2").append(data.rssi+"\r");
+        // $("#inData2").animate({scrollTop:$("#inData2")[0].scrollHeight - $("#inData2").height()},200);
+
+        //Plotting position using HTML5 canvas
+        //200 pixels == 30cm
+        var x; var y; var radius; var offset=0; var i;
+        // if(data.rssi >= 35 && data.rssi <= 42){radius = 100;} //distance from beacon 3m
+        // else if(data.rssi >= 43 && data.rssi <= 50 ){radius = 200;} // distance from beacon 60cm
+        // else if(data.rssi >=51 && data.rssi <= 60){radius = 300;} // distance from beacon 90cm
+        var c=document.getElementById("myCanvas");
+        var ctx=c.getContext("2d");
+        if(id1==1&&id2==1&&id3==1&&id4==1)
+        {
+          //while(1);
+        //clear canvas
+        ctx.clearRect(0, 0, 1160, 780);
+        ctx.beginPath();
+        ctx.rect(0,0,1160,780);
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = 'black';
+        ctx.stroke();
+        ctx.closePath();
+        id1=0;
+        id2=0;
+        id3=0;
+        id4=0;
+        }
+        var xa; var ya; var xb; var yb; var xc; var yc; var xd; var yd;
+        var ra; var rb; var rc; var rd;
+
+        if(data.id == 1){x = 0 + offset; y = 0 + offset;id1=1; xa = 0 + offset; ya = 0 + offset; ra = data.distance.toFixed(2);}
+        if(data.id == 2){x = 0 + offset; y = 780 + offset;id2=1; xb = 0 + offset; yb = 780 + offset; rb = data.distance.toFixed(2);}
+        if(data.id == 3){x = 1160+ offset; y = 780 + offset;id3=1; xc = 1160+ offset; yc = 780 + offset; rc = data.distance.toFixed(2);}
+        if(data.id == 4){x = 1160 + offset; y = 0 + offset;id4=1; xd = 1160 + offset; yd = 0 + offset; rd = data.distance.toFixed(2);}
+
+        //draw position of object
+        var S = (Math.pow(xc, 2) - Math.pow(xb, 2) + Math.pow(yc, 2) - Math.pow(yb, 2) + Math.pow(rb, 2) - Math.pow(rc, 2)) / 2;
+        var T = (Math.pow(xa, 2) - Math.pow(xb, 2) + Math.pow(ya, 2) - Math.pow(yb, 2) + Math.pow(rb, 2) - Math.pow(ra, 2)) / 2;
+        var a = ((T * (xb - xc)) - (S * (xb - xa))) / (((ya - yb) * (xb - xc)) - ((yc - yb) * (xb - xa)));
+        var b = ((y * (ya - yb)) - T) / (xb - xa);
+        console.log("a= ", a);
+        console.log(" b= ", b);
+        // now a, b  is the estimated receiver position
+
+        ctx.beginPath();
+        ctx.fillStyle = 'black';
+        ctx.globalAlpha = 1;
+        ctx.fillRect(a-20,b-20,40,40);
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = 'black';
+        ctx.stroke();
+        ctx.closePath();
+
+        //draw rectanlge
+        ctx.beginPath();
+        ctx.fillStyle = 'black';
+        ctx.globalAlpha = 1;
+        ctx.fillRect(x-20,y-20,40,40);
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = 'black';
+        ctx.stroke();
+        ctx.closePath();}
+
+        //draw circle
+        ctx.beginPath();
+        ctx.globalAlpha = 0.2;
+        ctx.strokeStyle="green";
+        ctx.lineWidth = 1;
+        ctx.arc(x, y, data.distance, 0, 2 * Math.PI);
+        ctx.fillStyle = 'green';
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.stroke();
+        ctx.closePath();
+
+      });
+
+
+      $('#ledOn').on('click',function(){
+         tmp = 1;
+        // var tmp = parseInt($('#ledDelay').val(),10);
+        //console.log("Current LED state:",tmp1)
+        //socket.emit('ledOn', tmp1);
+      });
+      $('#ledOff').on('click',function(){
+         tmp = 0;
+        // var tmp = parseInt($('#ledDelay').val(),10);
+        //console.log("Current LED state:",tmp1)
+        //socket.emit('ledOn', tmp1);
+      });
+    </script>
+    </body>
+</html>
