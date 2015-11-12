@@ -129,7 +129,7 @@ var knn = new ml.KNN({
 // end of knn function
 // handle web server
 function handler (req, res) {
-    fs.readFile(__dirname + '/index.html',
+    fs.readFile(__dirname + '/indexknn.html',
         function (err, data) {
             if (err) {
                 res.writeHead(500);
@@ -210,6 +210,7 @@ io.sockets.on('connection', function (socket) {
             socket.emit('sensor', { raw: 'Beacon ID: ' + frame.data[1] + '    RSSI: ' + frame.data[0] });
             // socket.emit('sensor2', frame.data[0]);
             socket.emit('sensor2', { id: frame.data[1], rssi: frame.data[0], region: region  });
+            socket.emit('sensor3', { id: frame.data[1], rssi: frame.data[0], region: region  });
         }
     });
 
