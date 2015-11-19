@@ -20,7 +20,7 @@ AtCommandRequest atRequest = AtCommandRequest(command1);
 ZBTxStatusResponse txStatus = ZBTxStatusResponse();
 AtCommandResponse atResponse = AtCommandResponse();
 
-uint8_t payload[] = {5,'a'};
+uint8_t payload[] = {5,6};
 XBeeAddress64 broadcastAddr = XBeeAddress64(0x00000000, 0x0000FFFF); 
 ZBTxRequest zbTx = ZBTxRequest(broadcastAddr, payload, sizeof(payload));
 
@@ -34,7 +34,7 @@ void setup (){
 void sendTx(ZBTxRequest zbTx){
   xbee.send(zbTx);
 
-   if (xbee.readPacket(500)) {
+   if (xbee.readPacket(5000)) {
     Serial.println("Got a Tx status response!");
     // got a response!
 
@@ -51,6 +51,10 @@ void sendTx(ZBTxRequest zbTx){
         // the remote XBee did not receive our packet. is it powered on?
       }
     }
+    else{
+      Serial.println("ZB_TX_STATUS_RESPONSE false");
+      Serial.println(txStatus.getDeliveryStatus());
+    }
   } else if (xbee.getResponse().isError()) {
     Serial.print("Error reading packet.  Error code: ");  
     Serial.println(xbee.getResponse().getErrorCode());
@@ -62,5 +66,5 @@ void sendTx(ZBTxRequest zbTx){
 
 void loop(){
   sendTx(zbTx);
-  delay(100);
+  delay(1000);
 }

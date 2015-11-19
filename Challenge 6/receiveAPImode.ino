@@ -23,7 +23,7 @@ ZBTxStatusResponse txStatus = ZBTxStatusResponse();
 AtCommandResponse atResponse = AtCommandResponse();
 
 uint8_t payload[] = {'h','i'};
-XBeeAddress64 broadcastAddr = XBeeAddress64(0x0013a200, 0x40A1A126); 
+XBeeAddress64 broadcastAddr = XBeeAddress64(0x00000000, 0x0000FFFF); 
 ZBTxRequest zbTx = ZBTxRequest(broadcastAddr, payload, sizeof(payload));
 
 void processResponse(){
@@ -82,6 +82,6 @@ void setup() {
 
 void loop() {
   // put your main code here, to run repeatedly:
-  xbee.readPacket(1000);
+  xbee.readPacket();
   processResponse();
 }
