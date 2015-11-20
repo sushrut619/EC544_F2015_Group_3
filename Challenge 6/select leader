@@ -1,0 +1,247 @@
+#include <SoftwareSerial.h>
+#include <XBee.h>
+# include <SoftwareSerial.h>
+# include <string.h>
+
+SoftwareSerial xbeeSerial(2,3);
+//pin
+const int buttonPin = 8;     // the number of the pushbutton pin
+const int red =  5;      // the number of the LED pin
+const int green =  6;
+const int blue =  7;
+int lock;
+int mark=0;
+//for debounce
+int ledState = HIGH; 
+int buttonState;             // the current reading from the input pin
+int lastButtonState = LOW;   // the previous reading from the input pin
+long lastDebounceTime = 0;  // the last time the output pin was toggled
+long debounceDelay = 50;    // the debounce time; increase if the output flickers
+
+uint8_t BEACON_ID = 1;
+
+
+
+XBee xbee = XBee();
+
+XBeeResponse response  = XBeeResponse();
+
+//create reusable objects for responses we expect to handle
+
+ZBRxResponse rx = ZBRxResponse();
+ModemStatusResponse msr = ModemStatusResponse();
+
+uint8_t command1[] = {'D','B'};  //command one
+AtCommandRequest atRequest = AtCommandRequest(command1);
+
+ZBTxStatusResponse txStatus = ZBTxStatusResponse();
+AtCommandResponse atResponse = AtCommandResponse();
+
+uint8_t payload[] = {'c','h','e','c','k'};
+
+uint8_t check[] = {'c','h','e','c','k'};
+XBeeAddress64 broadcastAddr = XBeeAddress64(0x0, 0x0000FFFF); 
+ZBTxRequest zbTx = ZBTxRequest(broadcastAddr, payload, sizeof(payload));
+ZBTxRequest zbTx1;
+//static char data[5];
+void processResponse(){
+  char data[5];
+  if (xbee.getResponse().isAvailable()) {
+      // got something
+      Serial.println("xbee.getResponse is available");     
+      if (xbee.getResponse().getApiId() == ZB_RX_RESPONSE) {
+        // got a zb rx packet
+        
+        // now fill our zb rx class
+        xbee.getResponse().getZBRxResponse(rx);
+      
+        Serial.println("Got an rx packet!");
+            
+        if (rx.getOption() == ZB_PACKET_ACKNOWLEDGED) {
+            // the sender got an ACK
+            Serial.println("packet acknowledged");
+        } else {
+          Serial.println("packet not acknowledged");
+        }
+        
+        Serial.print("checksum is ");
+        Serial.println(rx.getChecksum(), HEX);
+
+        Serial.print("packet length is ");
+        Serial.println(rx.getPacketLength());
+  
+         for (int i = 0; i < rx.getDataLength(); i++) {
+          Serial.print("payload [");
+          Serial.print(i, DEC);
+          Serial.print("] is ");
+          char c=rx.getData()[i];
+          data[i]=c;
+          
+          Serial.println(c);
+        }
+        
+//       for (int i = 0; i < xbee.getResponse().getFrameDataLength(); i++) {
+//        Serial.print("frame data [");
+//        Serial.print(i, DEC);
+//        Serial.print("] is ");
+//        Serial.println(xbee.getResponse().getFrameData()[i], HEX);
+//      }
+        
+      }
+    } else if (xbee.getResponse().isError()) {
+      Serial.print("error code:");
+      Serial.println(xbee.getResponse().getErrorCode());
+    }
+//    if(data[0]=='c')
+//     { uint8_t payload1[] = {'n','o'};
+//     zbTx1 = ZBTxRequest(broadcastAddr, payload1, sizeof(payload1));   
+//      xbee.send(zbTx1);
+//      delay(20);
+//     }
+//    return data;
+}
+int getbottonstate(int buttonPin){
+   
+  // read the state of the switch into a local variable:
+  int reading = digitalRead(buttonPin);
+
+  // check to see if you just pressed the button
+  // (i.e. the input went from LOW to HIGH),  and you've waited
+  // long enough since the last press to ignore any noise:
+
+  // If the switch changed, due to noise or pressing:
+  if (reading != lastButtonState) {
+    // reset the debouncing timer
+    lastDebounceTime = millis();
+  }
+
+  if ((millis() - lastDebounceTime) > debounceDelay) {
+    // whatever the reading is at, it's been there for longer
+    // than the debounce delay, so take it as the actual current state:
+
+    // if the button state has changed:
+    if (reading != buttonState) {
+      buttonState = reading;
+
+      // only toggle the LED if the new button state is HIGH
+      if (buttonState == HIGH) {
+        ledState = !ledState;
+      }
+    }
+  }
+
+  // set the LED:
+  //digitalWrite(ledPin, ledState);
+
+  // save the reading.  Next time through the loop,
+  // it'll be the lastButtonState:
+  lastButtonState = reading;
+  return lastButtonState;
+
+}
+
+void sendTx(ZBTxRequest zbTx){
+  xbee.send(zbTx);
+
+   if (xbee.readPacket(5000)) {
+    Serial.println("Got a Tx status response!");
+    // got a response!
+
+    // should be a znet tx status              
+    if (xbee.getResponse().getApiId() == ZB_TX_STATUS_RESPONSE) {
+      xbee.getResponse().getZBTxStatusResponse(txStatus);
+
+      // get the delivery status, the fifth byte
+      if (txStatus.getDeliveryStatus() == SUCCESS) {
+        // success.  time to celebrate
+        Serial.println("SUCCESS!");
+        
+      } else {
+        Serial.println("FAILURE!");
+        // the remote XBee did not receive our packet. is it powered on?
+      }
+    }
+  } else if (xbee.getResponse().isError()) {
+    Serial.print("Error reading packet.  Error code: ");  
+    Serial.println(xbee.getResponse().getErrorCode());
+  } else {
+    // local XBee did not provide a timely TX Status Response -- should not happen
+    Serial.println("This should never happen...");
+  }
+}
+
+void checkleader(){
+ xbee.send(zbTx);
+ xbee.readPacket(5000);
+ if (xbee.getResponse().getApiId() == ZB_TX_STATUS_RESPONSE) {
+      xbee.getResponse().getZBTxStatusResponse(txStatus);
+
+      // get the delivery status, the fifth byte
+      if (txStatus.getDeliveryStatus() == SUCCESS) {
+        // success.  time to celebrate
+        Serial.println("There is a leader!");
+       // if(!lock)
+        // digitalWrite(blue, LOW);
+         
+      } else {
+        if(mark)
+         digitalWrite(blue, HIGH);
+        Serial.println("no leader!");
+        mark=1;
+
+         lock=1;
+        // the remote XBee did not receive our packet. is it powered on?
+      }
+    }
+   processResponse();
+    //if(
+//
+//   if (xbee.readPacket(5000)) 
+//   {  if (xbee.getResponse().getApiId() == AT_COMMAND_RESPONSE) 
+//    Serial.println("There is a leader!");
+//    else
+//        Serial.println("no leader");
+//   }
+
+//  char* c;
+//  sendTx(zbTx);
+//  xbee.readPacket(5000);
+//  c=processResponse();
+//  Serial.println(c);
+//  delay(20);
+//  if(c[1]=='o')
+//  digitalWrite(blue, LOW);
+//  
+//  
+  
+}
+void setup() {
+  // put your setup code here, to run once:
+  Serial.begin(9600);
+  xbeeSerial.begin(9600);
+  xbee.setSerial(xbeeSerial);
+  pinMode(red, OUTPUT);  
+  pinMode(green, OUTPUT);  
+  pinMode(blue, OUTPUT);
+  pinMode(buttonPin, INPUT);
+  digitalWrite(red, HIGH);
+  digitalWrite(green, HIGH);
+  digitalWrite(blue, LOW);
+  Serial.println("Initializing receiver...");
+  lock=0;
+  mark=0;
+
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+  if(!lock)
+  digitalWrite(blue, LOW);
+  getbottonstate(buttonPin);
+  digitalWrite(red,ledState);
+   checkleader();
+  
+ delay(2000);
+
+  
+}
