@@ -29,13 +29,17 @@ void loop() {
  if (cm < 140) {
   flag = 1;
   XBee.print(flag);
+  Serial.print("The flag = ");
+  Serial.println(flag);
  }
  else {
   flag = 0;
   XBee.print(flag);
+  Serial.print("The flag = ");
+  Serial.println(flag);
  }
   Serial.print(cm);
   Serial.print("cm");
   Serial.println();
-  delay(5);
+  delay(500);
 }
