@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+    <title>Live crawler location</title>
+    <style>
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+      #map {
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+
+// This example creates a simple polygon representing the Bermuda Triangle.
+
+function initMap() {
+  var map = new google.maps.Map(document.getElementById('map'), {
+    zoom: 20,
+    center: {lat: 42.349211, lng: -71.106086},
+    mapTypeId: google.maps.MapTypeId.TERRAIN
+  });
+
+  var socket = io.connect('');
+  socket.on('live_location', function(pos){
+      console.log('live pos =', pos);
+          var marker = new google.maps.Marker({
+            position: pos,
+            map: map,
+            title: 'Hello World!'
+          });
+          console.log("Live coordinates = ", pos);
+  });
+
+  // Define the LatLng coordinates for the polygon's path.
+  // 42.349343, -71.106447
+  // 42.349226, -71.105668
+
+  // 42.349082, -71.105703 // bottom
+  // 42.349162, -71.106478
+  var triangleCoords = [
+    {lat: 42.349326, lng: -71.106452},
+    {lat: 42.349226, lng: -71.105668},
+    {lat: 42.349082, lng: -71.105703},
+    {lat: 42.349162, lng: -71.106478}
+  ];
+
+  // Construct a draggable red triangle with geodesic set to true.
+    // new google.maps.Polygon({
+    //   map: map,
+    //   paths: redCoords,
+    //   strokeColor: '#FF0000',
+    //   strokeOpacity: 0.8,
+    //   strokeWeight: 2,
+    //   fillColor: '#FF0000',
+    //   fillOpacity: 0.35,
+    //   draggable: true,
+    //   geodesic: true
+    // });
+    // [END region_red_triangle]
+
+  // Construct the polygon.
+  var bermudaTriangle = new google.maps.Polygon({
+      map: map,
+      paths: triangleCoords,
+      strokeColor: '#FF0000',
+      strokeOpacity: 0.8,
+      strokeWeight: 2,
+      fillColor: '#FF0000',
+      fillOpacity: 0.35,
+      draggable: true,
+      geodesic: true,
+      editable: true
+  });
+  bermudaTriangle.setMap(map);
+}
+
+    </script>
+    <script async defer
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD17WSybYwZ4tUs6Gskz2o3mIV7aSZePXo&signed_in=true&callback=initMap"></script>
+  </body>
+</html>
