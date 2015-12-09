@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Joystick!</title>
+
+    <!-- Bootstrap -->
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css">
+    <!-- Optional theme -->
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap-theme.min.css">
+
+  </head>
+  <body>
+
+    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
+    <!-- Include all compiled plugins (below), or include individual files as needed -->
+    <script src="https://netdna.bootstrapcdn.com/bootstrap/3.1.1/js/bootstrap.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="http://jeromeetienne.github.io/threex.keyboardstate/threex.keyboardstate.js"></script>
+    <script src="virtualjoystick.js"></script>
+
+    <script type="text/javascript">
+    // var socket = io.connect(document.location.href);
+    </script>
+
+    <script>
+
+      //Joystick!!
+//       var scene = new THREE.Scene();
+// var camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+// var clock = new THREE.Clock();
+// var socket = io.connect('');
+
+var keyboard = new THREEx.KeyboardState();
+var joystick = new VirtualJoystick({
+                      mouseSupport: true,
+		      stationaryBase: true,
+                      baseX: 100,
+                      baseY: 100,
+		      limitStickTravel: true,
+		      stickRadius: 50
+                   });
+
+animate();
+function animate(){
+
+  requestAnimationFrame(animate);
+
+  //  if( keyboard.pressed("D") ){
+  //    var tmp1 = 45;
+  //    console.log("Right turn");
+  //    socket.emit('servoRight', tmp1);
+  //  }
+
+  // do{
+  //      var tmp1 = 45;
+  //      console.log("Right turn");
+  //     //  socket.emit('servoRight', tmp1);
+  //    } while (keyboard.pressed("D"));
+
+   if( keyboard.pressed("A") ){
+     var tmp2 = 170;
+     console.log("Left turn")
+     socket.emit('servoLeft', tmp2);
+   }
+
+   if( keyboard.pressed("W") ){
+     var tmp3 = 45;
+     console.log("Moving forward");
+     socket.emit('move', tmp3);
+   }
+
+   if( keyboard.pressed("S") ){
+   var tmp4 = 135;
+   console.log("Moving backwards");
+   socket.emit('move', tmp4);
+   }
+
+   if( joystick.right() ){
+     var tmp5 = 45;
+     console.log("Right turn");
+     socket.emit('servoRight', tmp5);
+   }
+
+   if( joystick.left() ){
+     var tmp6 = 170;
+     console.log("Left turn")
+     socket.emit('servoLeft', tmp6);
+   }
+
+   if( joystick.up() ){
+     var tmp7 = 45;
+     console.log("Moving forward");
+     socket.emit('move', tmp7);
+   }
+
+   if( joystick.down() ){
+     var tmp8 = 135;
+     console.log("Moving backwards");
+     socket.emit('move', tmp8);
+
+   }
+
+}
+    </script>
+    </body>
+</html>
