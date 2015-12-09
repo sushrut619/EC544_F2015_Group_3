@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Crawler remote access</title>
+
+    <!-- Bootstrap -->
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css">
+
+    <!-- Optional theme -->
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap-theme.min.css">
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="col-xs-4 col-md-3">
+        <h3>Drive mode</h3>
+          <div class="btn-group">
+            <button type="button" id="ledOn" class="btn btn-danger">Auto</button>
+              <button type="button" id="ledOff" class="btn btn-success">Manual</button>
+          </div>
+        </div>
+              <div class="col-xs-3 col-md-4">
+              <img src="https://upload.wikimedia.org/wikipedia/de/5/58/GIGA_WASD.png" alt="Smiley face" height="110">
+              </div>
+              <div class="col-xs-5 col-md-5">
+                <h4>Accelerometer Control!</h4>
+                <p>    Output: <span id="test"></span></p>
+                <ul>
+                  <li>acceleration x: <span id="accelerationX"></span>g y: <span id="accelerationY"></span>g z: <span id="accelerationZ"></span>g</li>
+                  <!-- <li>acceleration y: </li>
+                  <li>acceleration z: </li> -->
+                  <li>rotation α: <span id="rotationAlpha"></span> β: <span id="rotationBeta"></span> γ: <span id="rotationGamma"></span></li>
+                  <!-- <li>rotation beta: </li>
+                  <li>rotation </li> -->
+                </ul>
+            </div>
+        </div>
+
+
+      <div class="row">
+      <div class="col-xs-2 col-md-2">
+        <div class="btn-group">
+          <h4>Controls</h4>
+          <p>      <button type="button" id="moveForward" class="btn btn-success">Throttle</button></p>
+          <p><button type="button" id="servoLeft" class="btn btn-success">Left</button>
+            <button type="button" id="servoRight" class="btn btn-success">Right</button></p>
+          <p>      <button type="button" id="moveBackward" class="btn btn-success">Reverse</button></p>
+        </div>
+        </div>
+        <div class="col-xs-6 col-md-4" class="embed-responsive embed-responsive-4by4">
+        <h4 align="center">Live stream from the crawler</h4>
+        <!-- <iframe src="http://155.41.126.108:8080/jsfs.html" width="400" height="300" allowfullscreen="" frameborder="0">
+          <p>Your browser does not support iframes.</p>
+        </iframe> -->
+        <iframe class="embed-responsive-item" src="http://10.0.0.144:8080/jsfs.html" width="600" height="220" allowfullscreen="" frameborder="0">
+          <p>Your browser does not support iframes.</p>
+        </iframe>
+        </div>
+        <div class="col-xs-2 col-md-2" class="embed-responsive embed-responsive-4by4">
+        <h4 align="center">Joystick</h4>
+        <iframe src="joystick.html" width="200" height="200" allowfullscreen="" frameborder="0">
+          <p>Your browser does not support iframes.</p>
+        </iframe>
+        </div>
+      </div>
+
+        <div id="content" class="row">
+
+      </div>
+      </div>
+    </div>
+
+    <!-- <div class="col-xs-6 col-md-4">
+      <h4>Canvas</h4>
+      <canvas id="canvas" width="300" height="300"></canvas>
+    </div> -->
+
+
+    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
+    <!-- Include all compiled plugins (below), or include individual files as needed -->
+    <script src="https://netdna.bootstrapcdn.com/bootstrap/3.1.1/js/bootstrap.min.js"></script>
+    <script src="http://jeromeetienne.github.io/threex.keyboardstate/threex.keyboardstate.js"></script>
+    <script src="virtualjoystick.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script type="text/javascript">
+    var socket = io.connect(document.location.href);
+    </script>
+
+    <script>
+
+      var click1 = ('ontouchstart' in document.documentElement)  ? 'touchstart' : 'mousedown';
+      var click2 = ('ontouchend' in document.documentElement)  ? 'touchend' : 'mouseup';
+      var socket = io.connect('');
+
+      socket.on('news', function (data) {
+        console.log(data);
+      });
+
+      socket.on('error', function (reason){
+              console.error('Unable to connect Socket.IO', reason);
+            });
+
+            socket.on('connect', function (){
+              console.info('Success! Established an authorized connection');
+            });
+
+            //printing data from Lidar
+      socket.on('sensor', function (data) {
+        console.log("Incoming sensor data:",data.raw);
+        var lidar = data;
+        //get a reference to the canvas
+        var ctx = $('#canvas')[0].getContext("2d");
+
+        ctx.rect(0,0,300,300);
+        ctx.stroke();
+
+        //draw a point
+        var x = lidar, y = 0;
+        if (x < 50) {y = 30;}
+        else if (x > 50 && x < 100){y = 60;}
+        else if (x > 100 && x < 150){y = 90;}
+        else if (x > 150 && x < 200){y = 120;}
+        else if (x > 200){y = 150;}
+        ctx.beginPath();
+        ctx.moveTo(a,b);
+        ctx.lineTo(x,y);
+        ctx.arc(x, y, 1, 0, Math.PI*2, true);
+        var a = x; var b = y;
+        //ctx.moveTo(a,b);
+        ctx.closePath();
+        ctx.fill();
+
+        $("#inData").append( lidar + "cm" +"\r");
+        $("#inData").animate({scrollTop:$("#inData")[0].scrollHeight - $("#inData").height()},0);
+
+      });
+
+      $('.servobtn').button();
+      $('.servobtn').on('change',function(){
+          console.log("Setting Servo Pos:",$('input[name=servo]:checked').val())
+          socket.emit('servo',{pos:$('input[name=servo]:checked').val()});
+      });
+
+
+      ///////////////////////////////////////
+      //Gyro control!!
+      //////////////////////////////////////
+
+      var x = 0, y = 0,
+          vx = 0, vy = 0,
+      	ax = 0, ay = 0;
+
+      // var sphere = document.getElementById("sphere");
+
+      if (window.DeviceMotionEvent != undefined) {
+      	window.ondevicemotion = function(e) {
+      		ax = event.accelerationIncludingGravity.x * 5;
+      		ay = event.accelerationIncludingGravity.y * 5;
+      		document.getElementById("accelerationX").innerHTML = e.accelerationIncludingGravity.x.toFixed(0);
+      		document.getElementById("accelerationY").innerHTML = e.accelerationIncludingGravity.y.toFixed(0);
+      		var turn = e.accelerationIncludingGravity.y.toFixed(0);
+      		if(turn > 0)
+          document.getElementById("test").innerHTML = "Crawler turning left!";
+      		if(turn < 0)
+      		document.getElementById("test").innerHTML = "Crawler turning right!";
+      		if(turn == 0)
+      		document.getElementById("test").innerHTML = "Crawler Neutral";
+
+      		document.getElementById("accelerationZ").innerHTML = e.accelerationIncludingGravity.z.toFixed(0);
+
+
+      		if ( e.rotationRate ) {
+      			document.getElementById("rotationAlpha").innerHTML = e.rotationRate.alpha.toFixed(0);
+      			document.getElementById("rotationBeta").innerHTML = e.rotationRate.beta.toFixed(0);
+      			document.getElementById("rotationGamma").innerHTML = e.rotationRate.gamma.toFixed(0);
+      		}
+      	}
+
+      	setInterval( function() {
+      		var landscapeOrientation = window.innerWidth/window.innerHeight > 1;
+      		if ( landscapeOrientation) {
+      			vx = vx + ay;
+      			vy = vy + ax;
+      		} else {
+      			vy = vy - ay;
+      			vx = vx + ax;
+      		}
+      		vx = vx * 0.98;
+      		vy = vy * 0.98;
+      		y = parseInt(y + vy / 50);
+      		x = parseInt(x + vx / 50);
+
+      	}, 25);
+      }
+
+
+      //Controlling crawler using keyboard
+      document.onkeydown = function(evt) {
+      evt = evt || window.event;
+      var charCode = evt.keyCode || evt.which;
+      var charStr = String.fromCharCode(charCode);
+      if(charStr == 'w' || charStr == 'W')
+      {
+          var tmp_w = 45;
+          console.log("Keyboard forward");
+          socket.emit('move', tmp_w);
+
+      }
+      if(charStr == 'a' || charStr == 'A')
+      {
+          var tmp_a = 170;
+          console.log("Keyboard turn left");
+          socket.emit('servoLeft', tmp_a);
+
+      }
+      if(charStr == 's' || charStr == 'S')
+      {
+          var tmp_s = 135;
+          console.log("Keyboard backwards");
+          socket.emit('move', tmp_s);
+
+      }
+      if(charStr == 'd' || charStr == 'D')
+      {
+          var tmp_d = 14;
+          console.log("Keyboard right");
+          socket.emit('servoRight', tmp_d);
+
+      }
+        // console.log("Forward!");
+      // alert(charStr);
+      };
+
+      //Key combos
+      // document.onkeydown = function(evt) {
+      // evt = evt || window.event;
+      // var charCode = evt.keyCode || evt.which;
+      // var charStr = String.fromCharCode(charCode);
+      // if(charStr == 'w' && charStr == 'a')
+      // {
+      //     var tmp_w = 45;
+      //     var tmp_l = 170;
+      //     console.log("w+a, turning left");
+      //     socket.emit('move', tmp_w);
+      //     socket.emit('servoLeft', tmp_l);
+      //
+      // }
+      // if(charStr == 'w' && charStr == 'd')
+      // {
+      //     var tmp_w = 45;
+      //     var tmp_r = 14;
+      //     console.log("w+d, turning right");
+      //     socket.emit('move', tmp_a);
+      //     socket.emit('servoRight', tmp_r);
+      // }
+      // if(charStr == 's' && charStr == 'a')
+      // {
+      //     var tmp_s = 135;
+      //     var tmp_t = 170;
+      //     console.log("s+a, reverse left");
+      //     socket.emit('move', tmp_s);
+      //
+      // }
+      // if(charStr == 's' && charStr == 'd')
+      // {
+      //     var tmp_s = 135;
+      //     var tmp_r = 14;
+      //     console.log("s+d, reverse right");
+      //     socket.emit('move', tmp_r);
+      //
+      // }
+      //   // console.log("Forward!");
+      // // alert(charStr);
+      // };
+
+      //Stopping on key release
+      document.onkeyup = function(evt) {
+      evt = evt || window.event;
+      var charCode = evt.keyCode || evt.which;
+      var charStr = String.fromCharCode(charCode);
+      if(charStr == 'w' || charStr == 'W')
+      {
+          var tmp_w = 95;
+          console.log("Moving forward");
+          socket.emit('move', tmp_w);
+
+      }
+      if(charStr == 'a' || charStr == 'A')
+      {
+          var tmp_a = 95;
+          console.log("Keyboard turn left");
+          socket.emit('move', tmp_a);
+
+      }
+      if(charStr == 's' || charStr == 'S')
+      {
+          var tmp_s = 95;
+          console.log("Keyboard backwards");
+          socket.emit('move', tmp_s);
+
+      }
+      if(charStr == 'd' || charStr == 'D')
+      {
+          var tmp_d = 95;
+          console.log("Keyboard right");
+          socket.emit('move', tmp_d);
+
+      }
+        // console.log("Forward!");
+      // alert(charStr);
+      };
+
+      //Turn Servo using buttons
+      $('#servoLeft').on(click1, function(){
+          var tmp3 = 170;
+          console.log("Turning left")
+          socket.emit('servoLeft', tmp3);
+        })
+        .on(click2, function() {
+          var tmp4 = 95;
+          console.log("Released left turn button")
+          socket.emit('servoLeft', tmp4);
+        });
+
+        $('#servoRight').on(click1, function(){
+            var tmp5 = 14;
+            console.log("Turning right")
+            socket.emit('servoRight', tmp5);
+          })
+          .on(click2, function() {
+            var tmp6 = 95;
+            console.log("Released right turn button")
+            socket.emit('servoLeft', tmp6);
+          });
+
+          $('#stop').on(click1, function(){
+              var tmp7 = 95;
+              console.log("Stopping")
+              socket.emit('stop', tmp7);
+            })
+            .on(click2, function() {
+              var tmp8 = 95;
+              console.log("Stopping")
+              socket.emit('stop', tmp8);
+            });
+
+            $('#moveForward').on(click1, function(){
+                var tmp9 = 45;
+                console.log("Moving forward");
+                socket.emit('move', tmp9);
+
+              })
+              .on(click2, function() {
+                var tmp10 = 95;
+                console.log("Released forward button")
+                socket.emit('move', tmp10);
+              });
+
+              $('#moveBackward').on(click1, function(){
+                  var tmp11 = 135;
+                  socket.emit('move', tmp11);
+                  console.log("Moving backwards")
+                })
+                .on(click2, function() {
+                  var tmp12 = 95;
+                  socket.emit('move', tmp12);
+                  console.log("Released back button")
+                });
+
+      //Old LED stuff from Challenge 3
+      // $('#ledSet').on('click',function(){
+      //   var tmp = parseInt($('#ledDelay').val(),10);
+      //   console.log("Current LED Delay:",tmp)
+      //   socket.emit('led',tmp);
+      // });
+      //
+      // $('#ledOn').on('click',function(){
+      //     var tmp1 = "On";
+      //   // var tmp = parseInt($('#ledDelay').val(),10);
+      //   console.log("Current LED state:",tmp1)
+      //   socket.emit('ledOn', tmp1);
+      // });
+      //
+      // $('#ledOff').on('click',function(){
+      //     var tmp2 = "Off";
+      //   // var tmp = parseInt($('#ledDelay').val(),10);
+      //   console.log("Current LED state:",tmp2)
+      //   socket.emit('ledOff', tmp2);
+      // });
+
+    </script>
+    </body>
+</html>

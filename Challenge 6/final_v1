@@ -1,0 +1,366 @@
+#include <SoftwareSerial.h>
+
+#include <XBee.h>
+# include <SoftwareSerial.h>
+
+SoftwareSerial xbeeSerial(2, 3);
+
+const uint8_t MY_BEACON_ID = 3;
+boolean LEADER_ELECTED_FLAG;
+boolean I_AM_LEADER;
+boolean INFECTED_FLAG;
+uint8_t LEADER_BEACON_ID;
+uint8_t XMITTER_BEACON_ID;
+uint8_t MIN_BEACON_ID;
+boolean MY_INFECTED_FLAG;
+boolean MY_LEADER_ELECTED_FLAG;
+boolean DISINFECTED;
+boolean MY_DISINFECTED;
+int response_count;
+int count;
+int resetcount;
+const int red =  5;      // the number of the LED pin
+const int green =  6;
+const int blue =  7;
+int sending=0;
+int buttonpressed=0;
+//debounce
+int lastButtonState = LOW;   // the previous reading from the input pin
+long lastDebounceTime = 0;  // the last time the output pin was toggled
+long debounceDelay = 50;    // the debounce time; increase if the output flickers
+volatile long long timeout = 1000; // 0.5 seconds
+volatile long long last_change_time = 0;
+
+
+XBee xbee = XBee();
+
+XBeeResponse response  = XBeeResponse();    //create an xbee object
+
+//create reusable objects for responses we expect to handle
+
+ZBRxResponse rx = ZBRxResponse();
+ModemStatusResponse msr = ModemStatusResponse();
+
+//  uint8_t command1[] = {'D','B'};  //command one
+//  AtCommandRequest atRequest = AtCommandRequest(command1);
+
+ZBTxStatusResponse txStatus = ZBTxStatusResponse();
+AtCommandResponse atResponse = AtCommandResponse();
+
+uint8_t payload[] = {MY_BEACON_ID, LEADER_ELECTED_FLAG, INFECTED_FLAG, LEADER_BEACON_ID};
+XBeeAddress64 broadcastAddr = XBeeAddress64(0x00000000, 0x0000FFFF);
+ZBTxRequest zbTx = ZBTxRequest(broadcastAddr, payload, sizeof(payload));
+
+void processResponse() {
+//pinMode(3, OUTPUT); 
+//detachInterrupt(1); 
+  if (xbee.getResponse().isAvailable()) {
+    // got something
+    if (xbee.getResponse().getApiId() == ZB_RX_RESPONSE) {
+      // got a zb rx packet
+     // response_count += 1;
+      Serial.println(response_count);
+      Serial.println("xbee.getResponse is available");
+      // now fill our zb rx class
+      xbee.getResponse().getZBRxResponse(rx);
+
+      Serial.println("Got an rx packet!");
+
+      if (rx.getOption() == ZB_PACKET_ACKNOWLEDGED) {
+        // the sender got an ACK
+        Serial.println("packet acknowledged");
+      } else {
+        Serial.println("packet not acknowledged");
+      }
+
+      Serial.print("checksum is ");
+      Serial.println(rx.getChecksum(), HEX);
+
+      Serial.print("packet length is ");
+      Serial.println(rx.getPacketLength(), DEC);
+
+      for (int i = 0; i < rx.getDataLength(); i++) {
+        Serial.print("payload [");
+        Serial.print(i, DEC);
+        Serial.print("] is ");
+        Serial.println(rx.getData()[i], HEX);
+      }
+
+      for (int i = 0; i < xbee.getResponse().getFrameDataLength(); i++) {
+        Serial.print("frame data [");
+        Serial.print(i, DEC);
+        Serial.print("] is ");
+        Serial.println(xbee.getResponse().getFrameData()[i], HEX);
+      }
+
+     XMITTER_BEACON_ID = rx.getData()[0];
+      LEADER_ELECTED_FLAG = rx.getData()[1];
+      INFECTED_FLAG = rx.getData()[2];
+      DISINFECTED = rx.getData()[3];
+//      Serial.println( "----------------");
+//      Sverial.println( XMITTER_BEACON_ID);
+//      Serial.println(LEADER_ELECTED_FLAG);
+//      Serial.println(INFECTED_FLAG);
+      
+       
+      
+      if (XMITTER_BEACON_ID < MIN_BEACON_ID) {
+        // since we choose to elect the beacon with smallest beacon id as the leader, find the smallest beacon id
+        MIN_BEACON_ID = XMITTER_BEACON_ID;
+      }
+        Serial.print("my beaconID");
+        Serial.println(MY_BEACON_ID);
+        Serial.print("min beaconID");
+        Serial.println(MIN_BEACON_ID);
+      if(XMITTER_BEACON_ID!=MIN_BEACON_ID)
+      response_count++;
+      if(response_count>5)
+      {
+        response_count=0;
+        MIN_BEACON_ID=6;
+      }
+      if((LEADER_ELECTED_FLAG&&INFECTED_FLAG)||DISINFECTED)
+      {
+
+          digitalWrite(green, HIGH);
+          digitalWrite(red, LOW);
+          MY_INFECTED_FLAG=0;
+          MY_DISINFECTED=1;
+
+      }
+       if(!LEADER_ELECTED_FLAG&&INFECTED_FLAG&&MY_LEADER_ELECTED_FLAG!=1)
+      {
+         MY_INFECTED_FLAG=1;
+          digitalWrite(red, HIGH);
+          digitalWrite(green, LOW);
+
+      }
+      if (MY_BEACON_ID> MIN_BEACON_ID)
+      {
+      digitalWrite(7, LOW);
+      LEADER_BEACON_ID =MIN_BEACON_ID;
+      MY_LEADER_ELECTED_FLAG=0;
+      }
+      if (MY_BEACON_ID<=MIN_BEACON_ID)
+      {
+        //Serial.println("change beaconID");
+      digitalWrite(7, HIGH);
+      LEADER_BEACON_ID =MY_BEACON_ID;
+      MY_LEADER_ELECTED_FLAG=1;
+      
+    
+      }
+      //if(response_count>=5&&
+
+
+    count=0;
+    } 
+    else {
+      if(count>=7){
+      Serial.println("only one xbee");
+        digitalWrite(7, HIGH);
+        count=0;
+        LEADER_BEACON_ID = MY_BEACON_ID;
+        MY_LEADER_ELECTED_FLAG=1;
+      }
+      else
+      count++;
+    }
+  } else if (xbee.getResponse().isError()) {
+    Serial.print("error code:");
+    Serial.println(xbee.getResponse().getErrorCode());
+  }
+   
+  // leader election algortihm
+//  if (response_count == 0 || response_count > 10) {   //wait for 10 responses or if no response
+//    if (1) {                       // if no leader has been elected yet
+//      if (MY_BEACON_ID < MIN_BEACON_ID) {             //if the beacon has smallest beacon ID
+//        I_AM_LEADER = 1;                              //elect itself as the leader
+//        LEADER_ELECTED_FLAG = 1;
+//        LEADER_BEACON_ID = MY_BEACON_ID;
+//        response_count = 0;
+//        Serial.println("Leader Elected");
+//        digitalWrite(7, HIGH);
+//        Serial.println("setting");
+//        //delay(100);
+//      }
+//    }
+//  }
+//  if( LEADER_BEACON_ID==0)
+//  {
+//     LEADER_BEACON_ID = MY_BEACON_ID;
+//       digitalWrite(7, HIGH);
+//       MY_LEADER_ELECTED_FLAG=1;
+//       count=0;
+//  }
+  if(MY_INFECTED_FLAG==1&&MY_LEADER_ELECTED_FLAG)
+  {
+  sendTx();
+  if(resetcount>3)
+  {MY_INFECTED_FLAG=0;
+  resetcount=0;
+  }
+  else
+  resetcount++;
+  delay(2000);
+  }
+  else if(MY_DISINFECTED==1)
+  {
+   sendTx();
+   MY_DISINFECTED=0;
+   delay(2000);
+  }
+  else
+   sendTx();
+     delay(2000);
+  
+}
+
+void sendTx() {
+//  Serial.print("INFECTED_FLAG:");
+//   Serial.println(INFECTED_FLAG);
+//   INFECTED_FLAG = 1;
+//   Serial.print("MY_INFECTED_FLAG:");
+//   Serial.println(MY_INFECTED_FLAG);
+  uint8_t payload[] = {MY_BEACON_ID, MY_LEADER_ELECTED_FLAG, MY_INFECTED_FLAG, MY_DISINFECTED};
+  ZBTxRequest zbTx = ZBTxRequest(broadcastAddr, payload, sizeof(payload));
+  Serial.println("sending frame....");
+  Serial.print("Leader ID: ");
+  Serial.println(LEADER_BEACON_ID);
+    Serial.print("count: ");
+  Serial.println(count);
+ 
+  xbee.send(zbTx);
+   attachInterrupt(1,up,HIGH); 
+  //pinMode(3, INPUT); 
+  /*    // we dont need to check for acknowledgement since we are broadcasting
+    if (xbee.readPacket(500)) {
+      Serial.println("Got a Tx status response!");
+      // got a response!
+
+      // should be a znet tx status
+      if (xbee.getResponse().getApiId() == ZB_TX_STATUS_RESPONSE) {
+        xbee.getResponse().getZBTxStatusResponse(txStatus);
+
+        // get the delivery status, the fifth byte
+        if (txStatus.getDeliveryStatus() == SUCCESS) {
+          // success.  time to celebrate
+          Serial.println("SUCCESS!");
+        } else {
+          Serial.println("FAILURE!");
+          // the remote XBee did not receive our packet. is it powered on?
+        }
+      }
+      else {
+        Serial.println("ZB_TX_STATUS_RESPONSE false");
+        Serial.println(txStatus.getDeliveryStatus());
+      }
+    } else if (xbee.getResponse().isError()) {
+      Serial.print("Error reading packet.  Error code: ");
+      Serial.println(xbee.getResponse().getErrorCode());
+    } else {
+      // local XBee did not provide a timely TX Status Response -- should not happen
+      //this occurs when we broadcast a message and since broadcast messages do not have a acknowledgement
+      Serial.println("This should never happen...");
+    }
+    */
+}
+void up()
+{if(!digitalRead(9)==1)
+{
+//  Serial.println("-------------GOING UP-------------");
+//  Serial.print("Current Time - ");
+//  Serial.println(millis());
+//  Serial.print("Last Change Time - ");
+//  Serial.println((long) last_change_time);
+  int difference = millis()-last_change_time;
+//  Serial.print("Difference - ");
+ //Serial.println((long) difference);
+//  Serial.print("Within Threshold? - ");
+  if(difference > timeout || last_change_time == 0)
+  {Serial.println((long) difference);
+    Serial.println("Botton Pressed");
+  }
+  else
+  {
+    //Serial.println("NO");
+  }
+  
+
+  if(( ((millis()-last_change_time)>timeout)) || last_change_time == 0)
+  {if(!MY_LEADER_ELECTED_FLAG)
+  {
+  MY_INFECTED_FLAG=1;
+  digitalWrite(red, HIGH);
+  digitalWrite(green, LOW);
+  }
+  else
+  {
+     MY_INFECTED_FLAG=1;
+     //sendTx();
+  }
+    //ledState=!ledState;
+last_change_time = millis();
+
+}
+
+//Serial.print("New Gear = ");
+//Serial.println(current_gear);
+delay(150);
+}
+}
+
+void elect_leader(){}
+
+void setup() {
+  // put your setup code here, to run once:
+  Serial.begin(9600);
+  xbeeSerial.begin(9600);
+  xbee.setSerial(xbeeSerial);
+  Serial.println("Initializing beacon...");
+  Serial.println(MY_BEACON_ID);
+
+  pinMode(red, OUTPUT);  
+  pinMode(green, OUTPUT);  
+  pinMode(blue, OUTPUT);
+  pinMode(9, INPUT);
+  buttonpressed=0;
+  //pinMode(3, INPUT);
+  digitalWrite(red, LOW);
+  digitalWrite(green, HIGH);
+  digitalWrite(blue, LOW);
+  // initialize variables and flags
+  LEADER_ELECTED_FLAG = 0;
+  MY_LEADER_ELECTED_FLAG = 0;
+  I_AM_LEADER = 0;
+  INFECTED_FLAG = 0;
+  MY_INFECTED_FLAG = 0;
+  LEADER_BEACON_ID = 0;
+  MIN_BEACON_ID = 100;
+  DISINFECTED=0;
+  MY_DISINFECTED=0;
+  count=0;
+  resetcount=0;
+  attachInterrupt(1,up,HIGH); 
+  
+  Serial.println("listening for broadcast");
+  if (xbee.readPacket(5000)) {
+    processResponse();
+    Serial.println("initial response from network...");
+  } else {
+    elect_leader();
+    sendTx;
+    delay(1000);
+  }
+  
+     
+    
+}
+
+
+void loop() {
+  // put your main code here, to run repeatedly:
+  xbee.readPacket(5000);
+  processResponse();
+ // delay(1000);
+}
